@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PKS Facilities Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: { 50:'#f0fdfa', 100:'#ccfbf1', 200:'#99f6e4', 300:'#5eead4', 400:'#2dd4bf', 500:'#14b8a6', 600:'#0d9488', 700:'#0f766e', 800:'#115e59', 900:'#134e4a' },
+            slate: { 50:'#f8fafc', 100:'#f1f5f9', 200:'#e2e8f0', 300:'#cbd5e1', 400:'#94a3b8', 500:'#64748b', 600:'#475569', 700:'#334155', 800:'#1e293b', 900:'#0f172a' }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    /* Tab visibility control */
+    html[data-tab="executive"] .tab-content:not([data-content="executive"]) { display: none !important; }
+    html[data-tab="dept"]      .tab-content:not([data-content="dept"])      { display: none !important; }
+    html[data-tab="facility"]  .tab-content:not([data-content="facility"])  { display: none !important; }
+    html[data-tab="survey"]    .tab-content:not([data-content="survey"])    { display: none !important; }
+    /* Active tab button styling */
+    html[data-tab="executive"] [data-tab-btn="executive"],
+    html[data-tab="dept"]      [data-tab-btn="dept"],
+    html[data-tab="facility"]  [data-tab-btn="facility"],
+    html[data-tab="survey"]    [data-tab-btn="survey"] {
+      background: white !important;
+      color: #0d9488 !important;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    /* Star button styles (used in Tab 4) */
+    .star-btn { color: #d1d5db; cursor: pointer; font-size: 1.4rem; transition: color 0.15s; background: none; border: none; padding: 0 2px; line-height: 1; }
+    .star-btn.active { color: #f59e0b; }
+    /* Category toggle buttons (Tab 4) */
+    .cat-btn { border: 2px solid #d1d5db; border-radius: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; transition: all 0.15s; background: white; color: #475569; font-size: 0.9rem; }
+    .cat-btn:hover { border-color: #0d9488; color: #0d9488; }
+    .cat-btn.selected { background: #0d9488; border-color: #0d9488; color: white; box-shadow: 0 2px 8px rgba(13,148,136,0.3); }
+    /* Rating rows */
+    .rating-row { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid #e2e8f0; gap: 1rem; flex-wrap: wrap; }
+    .rating-row:last-child { border-bottom: none; }
+    /* Smooth tab content transitions */
+    .tab-content { animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #14b8a6; border-radius: 3px; }
+    /* Responsive table */
+    @media (max-width: 768px) {
+      .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+    }
+    /* Responsive tab labels */
+    @media (max-width: 768px) {
+      .tab-nav-label-full { display: none; }
+      .tab-nav-label-short { display: inline; }
+    }
+    @media (min-width: 769px) {
+      .tab-nav-label-short { display: none; }
+    }
+    /* Toast animations */
+    @keyframes slideInToast  { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes slideOutToast { from { opacity:1; transform:translateX(0); }    to { opacity:0; transform:translateX(40px); } }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
+
+  <!-- HEADER -->
+  <header class="w-full text-white" style="background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #06b6d4 100%);">
+    <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <!-- Left: icon + title + subtitle -->
+      <div class="flex items-center gap-3">
+        <i data-lucide="layout-dashboard" class="w-9 h-9 shrink-0"></i>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold leading-tight">PKS Facilities Dashboard</h1>
+          <p class="text-sm sm:text-base" style="color: rgba(255,255,255,0.75);">Politeknik Kuching Sarawak — Penilaian Kepuasan Kemudahan Kampus</p>
+        </div>
+      </div>
+      <!-- Right: date + response count -->
+      <div class="text-right sm:text-right text-sm sm:text-base space-y-0.5">
+        <div class="font-medium"><span id="header-date"></span></div>
+        <div style="color: rgba(255,255,255,0.80);"><span id="total-responses" class="font-bold text-white">0</span> Responden</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- TAB NAVIGATION -->
+  <nav class="sticky top-0 z-40 bg-white shadow-sm border-b border-slate-200">
+    <div class="max-w-2xl mx-auto px-4 py-2">
+      <div class="flex gap-1 bg-slate-100 rounded-xl p-1">
+        <button data-tab-btn="executive"
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm text-slate-600 transition-all duration-150">
+          <i data-lucide="bar-chart-2" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden sm:inline">Ringkasan Eksekutif</span>
+          <span class="sm:hidden">Eksekutif</span>
+        </button>
+        <button data-tab-btn="dept"
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm text-slate-600 transition-all duration-150">
+          <i data-lucide="users" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden sm:inline">Pemantauan Jabatan</span>
+          <span class="sm:hidden">Jabatan</span>
+        </button>
+        <button data-tab-btn="facility"
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm text-slate-600 transition-all duration-150">
+          <i data-lucide="building" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden sm:inline">Analisis Fasiliti</span>
+          <span class="sm:hidden">Fasiliti</span>
+        </button>
+        <button data-tab-btn="survey"
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm text-slate-600 transition-all duration-150">
+          <i data-lucide="clipboard-list" class="w-4 h-4 shrink-0"></i>
+          <span class="hidden sm:inline">Borang Soal Selidik</span>
+          <span class="sm:hidden">Borang</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <section data-content="executive" class="tab-content space-y-6">
+
+      <!-- A. 4 KPI Metric Cards -->
+      <div id="kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card 1: CSAT -->
+        <div id="kpi-csat" class="bg-white rounded-xl shadow-sm border-l-4 border-teal-600 p-5 flex items-center gap-4">
+          <div class="shrink-0 w-11 h-11 rounded-full bg-teal-50 flex items-center justify-center text-teal-600">
+            <i data-lucide="smile" class="w-6 h-6"></i>
+          </div>
+          <div class="min-w-0">
+            <div id="kpi-csat-value" class="text-2xl font-bold text-slate-800">—</div>
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-0.5">CSAT Keseluruhan</div>
+            <div class="text-xs text-slate-400 mt-0.5">Responden beri skor 4–5</div>
+          </div>
+        </div>
+        <!-- Card 2: Avg Score -->
+        <div id="kpi-avg" class="bg-white rounded-xl shadow-sm border-l-4 border-amber-500 p-5 flex items-center gap-4">
+          <div class="shrink-0 w-11 h-11 rounded-full bg-amber-50 flex items-center justify-center text-amber-500">
+            <i data-lucide="star" class="w-6 h-6"></i>
+          </div>
+          <div class="min-w-0">
+            <div id="kpi-avg-value" class="text-2xl font-bold text-slate-800">—</div>
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-0.5">Purata Skor Keseluruhan</div>
+            <div id="kpi-avg-badge" class="mt-1"></div>
+          </div>
+        </div>
+        <!-- Card 3: Total Respondents -->
+        <div id="kpi-total" class="bg-white rounded-xl shadow-sm border-l-4 border-indigo-500 p-5 flex items-center gap-4">
+          <div class="shrink-0 w-11 h-11 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+          <div class="min-w-0">
+            <div id="kpi-total-value" class="text-2xl font-bold text-slate-800">—</div>
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-0.5">Jumlah Responden</div>
+            <div class="text-xs text-slate-400 mt-0.5">Daripada 8 jabatan PKS</div>
+          </div>
+        </div>
+        <!-- Card 4: KPI Target -->
+        <div id="kpi-target" class="bg-white rounded-xl shadow-sm border-l-4 border-emerald-500 p-5 flex items-center gap-4">
+          <div class="shrink-0 w-11 h-11 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
+            <i data-lucide="target" class="w-6 h-6"></i>
+          </div>
+          <div class="min-w-0">
+            <div id="kpi-target-value" class="text-2xl font-bold text-slate-800">—</div>
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-0.5">Kemudahan Cemerlang</div>
+            <div class="text-xs text-slate-400 mt-0.5">Fasiliti capai purata ≥ 4.0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- B. Status Panel (Top vs Critical) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Best facility -->
+        <div id="status-top" class="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="trophy" class="w-5 h-5 text-emerald-600 shrink-0"></i>
+            <span class="text-xs font-bold text-emerald-700 uppercase tracking-wide">Fasiliti Paling Cemerlang</span>
+          </div>
+          <div id="status-top-name" class="text-lg font-bold text-slate-800 mb-2">—</div>
+          <div class="flex items-center gap-2 mb-3">
+            <span id="status-top-score" class="text-sm font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">—</span>
+            <span id="status-top-csat" class="text-sm font-semibold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">—</span>
+          </div>
+          <div class="w-full bg-emerald-200 rounded-full h-2">
+            <div id="status-top-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width:0%"></div>
+          </div>
+        </div>
+        <!-- Critical facility -->
+        <div id="status-critical" class="rounded-xl border border-rose-200 bg-rose-50 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600 shrink-0"></i>
+            <span class="text-xs font-bold text-rose-700 uppercase tracking-wide">Memerlukan Perhatian Segera</span>
+          </div>
+          <div id="status-critical-name" class="text-lg font-bold text-slate-800 mb-2">—</div>
+          <div class="flex items-center gap-2 mb-3">
+            <span id="status-critical-score" class="text-sm font-semibold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">—</span>
+            <span id="status-critical-status" class="text-sm font-semibold bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full">—</span>
+          </div>
+          <div class="w-full bg-rose-200 rounded-full h-2">
+            <div id="status-critical-bar" class="bg-rose-400 h-2 rounded-full transition-all duration-500" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- C. Facility Bar Chart -->
+      <div class="bg-white rounded-xl shadow-sm p-5">
+        <div class="flex items-center gap-2 mb-5">
+          <i data-lucide="bar-chart-horizontal" class="w-5 h-5 text-slate-500 shrink-0"></i>
+          <h2 class="text-base font-bold text-slate-700">Perbandingan Penarafan Kemudahan</h2>
+        </div>
+        <div id="facility-bar-chart" class="space-y-3">
+          <!-- Populated by renderFacilityBarChart() -->
+        </div>
+      </div>
+
+      <!-- D. Global Sentiment Distribution -->
+      <div class="bg-white rounded-xl shadow-sm p-5">
+        <div class="flex items-center gap-2 mb-5">
+          <i data-lucide="pie-chart" class="w-5 h-5 text-slate-500 shrink-0"></i>
+          <h2 class="text-base font-bold text-slate-700">Taburan Sentimen Keseluruhan</h2>
+        </div>
+        <div id="sentiment-bar" class="space-y-4">
+          <!-- Populated by renderSentimentBar() -->
+        </div>
+      </div>
+
+    </section>
+    <section data-content="dept" class="tab-content space-y-6">
+
+      <!-- Section Header -->
+      <div class="bg-white rounded-xl shadow-sm p-5 flex items-center gap-3">
+        <div class="shrink-0 w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center text-teal-600">
+          <i data-lucide="users-round" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-slate-800">Pemantauan Responden Mengikut Jabatan</h2>
+          <p class="text-sm text-slate-500 mt-0.5">Semak tahap penyertaan setiap jabatan dan pecahan kategori responden</p>
+        </div>
+      </div>
+
+      <!-- Department Quota Cards Grid -->
+      <div id="dept-quota-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Rendered by renderDeptQuotaCards() -->
+      </div>
+
+      <!-- Jabatan × Kategori Matrix -->
+      <div class="bg-white rounded-xl shadow-sm p-5">
+        <div class="flex items-center gap-2 mb-5">
+          <i data-lucide="table-2" class="w-5 h-5 text-slate-500 shrink-0"></i>
+          <h2 class="text-base font-bold text-slate-700">Matriks Pecahan Kategori Responden</h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border-collapse">
+            <thead>
+              <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+                <th class="text-left px-4 py-3 font-semibold border-b border-slate-200 whitespace-nowrap">Jabatan</th>
+                <th class="text-center px-4 py-3 font-semibold border-b border-slate-200 whitespace-nowrap">Pelajar</th>
+                <th class="text-center px-4 py-3 font-semibold border-b border-slate-200 whitespace-nowrap">Staf</th>
+                <th class="text-center px-4 py-3 font-semibold border-b border-slate-200 whitespace-nowrap">Pelawat</th>
+                <th class="text-center px-4 py-3 font-semibold border-b border-slate-200 whitespace-nowrap">Jumlah</th>
+              </tr>
+            </thead>
+            <tbody id="dept-matrix-table">
+              <!-- Rendered by renderDeptMatrix() -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+    <section data-content="facility" class="tab-content">
+      <!-- Section Header -->
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="building" class="w-5 h-5 text-teal-600"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-bold text-slate-800">Analisis Terperinci Setiap Kemudahan</h2>
+          <p class="text-sm text-slate-500">Pecahan taburan penarafan bintang 1–5 untuk setiap kemudahan kampus</p>
+        </div>
+      </div>
+      <!-- Facility Detail Cards Grid -->
+      <div id="facility-cards-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+    </section>
+    <section data-content="survey" class="tab-content">
+      <div class="max-w-2xl mx-auto py-8 px-4">
+
+        <!-- Form Card -->
+        <div class="bg-white rounded-2xl shadow-md overflow-hidden">
+
+          <!-- Card Header -->
+          <div class="px-6 py-5 flex items-center gap-4" style="background: linear-gradient(135deg, #0f766e 0%, #0d9488 60%, #14b8a6 100%);">
+            <i data-lucide="clipboard-list" class="w-8 h-8 text-white shrink-0"></i>
+            <div>
+              <h2 class="text-white font-bold text-lg leading-tight">Borang Soal Selidik Kepuasan Kemudahan</h2>
+              <p class="text-white/80 text-sm mt-0.5">Semua maklum balas adalah 100% anonim — tiada maklumat peribadi dikumpul</p>
+            </div>
+          </div>
+
+          <!-- Card Body -->
+          <div class="px-6 py-6 space-y-8">
+
+            <!-- Section 1: Maklumat Kategori -->
+            <div>
+              <p class="text-xs font-semibold text-teal-700 uppercase tracking-wider mb-4">Bahagian 1: Maklumat Responden</p>
+
+              <!-- Department dropdown -->
+              <div class="mb-5">
+                <label for="form-dept" class="block text-sm font-medium text-slate-700 mb-1.5">Pilih Jabatan Anda</label>
+                <select id="form-dept" class="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm">
+                  <option value="">-- Pilih Jabatan --</option>
+                  <option value="jka">Jabatan Kejuruteraan Awam</option>
+                  <option value="jke">Jabatan Kejuruteraan Elektrik</option>
+                  <option value="jkm">Jabatan Kejuruteraan Mekanikal</option>
+                  <option value="jp">Jabatan Perdagangan</option>
+                  <option value="jtmk">Jabatan TMK</option>
+                  <option value="jmsk">Jabatan Matematik, Sains &amp; Komputer</option>
+                  <option value="jpa">Jabatan Pengajian Am</option>
+                  <option value="admin">Pentadbiran &amp; Kamsis/Sokongan</option>
+                </select>
+              </div>
+
+              <!-- Category toggle buttons -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Kategori Pengguna</label>
+                <div id="category-buttons" class="flex gap-3 flex-wrap">
+                  <button type="button" data-cat="pelajar" class="cat-btn">🎓 Pelajar</button>
+                  <button type="button" data-cat="staf"    class="cat-btn">👔 Staf</button>
+                  <button type="button" data-cat="pelawat" class="cat-btn">🏃 Pelawat</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 2: Penilaian Kemudahan -->
+            <div>
+              <p class="text-xs font-semibold text-teal-700 uppercase tracking-wider mb-4">Bahagian 2: Penilaian Kemudahan (Wajib untuk semua kemudahan)</p>
+
+              <div class="bg-slate-50 rounded-xl border border-slate-200">
+                <!-- Rating row: makmal -->
+                <div class="rating-row" data-facility="makmal">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="flask-conical" class="w-5 h-5 text-teal-600 shrink-0"></i>
+                    <span class="font-medium text-slate-700 text-sm">Makmal &amp; Bengkel Kejuruteraan/Teknologi</span>
+                  </div>
+                  <div class="star-group flex gap-0.5" data-fac-id="makmal">
+                    <button type="button" class="star-btn" data-star="1">★</button>
+                    <button type="button" class="star-btn" data-star="2">★</button>
+                    <button type="button" class="star-btn" data-star="3">★</button>
+                    <button type="button" class="star-btn" data-star="4">★</button>
+                    <button type="button" class="star-btn" data-star="5">★</button>
+                  </div>
+                </div>
+                <!-- Rating row: perpustakaan -->
+                <div class="rating-row" data-facility="perpustakaan">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="library" class="w-5 h-5 text-teal-600 shrink-0"></i>
+                    <span class="font-medium text-slate-700 text-sm">Perpustakaan Al-Farabi</span>
+                  </div>
+                  <div class="star-group flex gap-0.5" data-fac-id="perpustakaan">
+                    <button type="button" class="star-btn" data-star="1">★</button>
+                    <button type="button" class="star-btn" data-star="2">★</button>
+                    <button type="button" class="star-btn" data-star="3">★</button>
+                    <button type="button" class="star-btn" data-star="4">★</button>
+                    <button type="button" class="star-btn" data-star="5">★</button>
+                  </div>
+                </div>
+                <!-- Rating row: wifi -->
+                <div class="rating-row" data-facility="wifi">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="wifi" class="w-5 h-5 text-teal-600 shrink-0"></i>
+                    <span class="font-medium text-slate-700 text-sm">Rangkaian Wi-Fi &amp; Makmal ICT</span>
+                  </div>
+                  <div class="star-group flex gap-0.5" data-fac-id="wifi">
+                    <button type="button" class="star-btn" data-star="1">★</button>
+                    <button type="button" class="star-btn" data-star="2">★</button>
+                    <button type="button" class="star-btn" data-star="3">★</button>
+                    <button type="button" class="star-btn" data-star="4">★</button>
+                    <button type="button" class="star-btn" data-star="5">★</button>
+                  </div>
+                </div>
+                <!-- Rating row: kafeteria -->
+                <div class="rating-row" data-facility="kafeteria">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="utensils" class="w-5 h-5 text-teal-600 shrink-0"></i>
+                    <span class="font-medium text-slate-700 text-sm">Kafeteria &amp; Medan Selera</span>
+                  </div>
+                  <div class="star-group flex gap-0.5" data-fac-id="kafeteria">
+                    <button type="button" class="star-btn" data-star="1">★</button>
+                    <button type="button" class="star-btn" data-star="2">★</button>
+                    <button type="button" class="star-btn" data-star="3">★</button>
+                    <button type="button" class="star-btn" data-star="4">★</button>
+                    <button type="button" class="star-btn" data-star="5">★</button>
+                  </div>
+                </div>
+                <!-- Rating row: kamsis -->
+                <div class="rating-row" data-facility="kamsis">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="building-2" class="w-5 h-5 text-teal-600 shrink-0"></i>
+                    <span class="font-medium text-slate-700 text-sm">Kolej Kediaman (Kamsis)</span>
+                  </div>
+                  <div class="star-group flex gap-0.5" data-fac-id="kamsis">
+                    <button type="button" class="star-btn" data-star="1">★</button>
+                    <button type="button" class="star-btn" data-star="2">★</button>
+                    <button type="button" class="star-btn" data-star="3">★</button>
+                    <button type="button" class="star-btn" data-star="4">★</button>
+                    <button type="button" class="star-btn" data-star="5">★</button>
+                  </div>
+                </div>
+                <!-- Rating row: sukan -->
+                <div class="rating-row" data-facility="sukan">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="dumbbell" class="w-5 h-5 text-teal-600 shrink-0"></i>
+                    <span class="font-medium text-slate-700 text-sm">Kompleks Sukan &amp; Rekreasi</span>
+                  </div>
+                  <div class="star-group flex gap-0.5" data-fac-id="sukan">
+                    <button type="button" class="star-btn" data-star="1">★</button>
+                    <button type="button" class="star-btn" data-star="2">★</button>
+                    <button type="button" class="star-btn" data-star="3">★</button>
+                    <button type="button" class="star-btn" data-star="4">★</button>
+                    <button type="button" class="star-btn" data-star="5">★</button>
+                  </div>
+                </div>
+                <!-- Rating row: surau -->
+                <div class="rating-row" data-facility="surau">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="moon" class="w-5 h-5 text-teal-600 shrink-0"></i>
+                    <span class="font-medium text-slate-700 text-sm">Surau Pusat &amp; Bilik Solat</span>
+                  </div>
+                  <div class="star-group flex gap-0.5" data-fac-id="surau">
+                    <button type="button" class="star-btn" data-star="1">★</button>
+                    <button type="button" class="star-btn" data-star="2">★</button>
+                    <button type="button" class="star-btn" data-star="3">★</button>
+                    <button type="button" class="star-btn" data-star="4">★</button>
+                    <button type="button" class="star-btn" data-star="5">★</button>
+                  </div>
+                </div>
+                <!-- Rating row: tandas -->
+                <div class="rating-row" data-facility="tandas">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-teal-600 shrink-0"></i>
+                    <span class="font-medium text-slate-700 text-sm">Kebersihan Tandas &amp; Infrastruktur Asas</span>
+                  </div>
+                  <div class="star-group flex gap-0.5" data-fac-id="tandas">
+                    <button type="button" class="star-btn" data-star="1">★</button>
+                    <button type="button" class="star-btn" data-star="2">★</button>
+                    <button type="button" class="star-btn" data-star="3">★</button>
+                    <button type="button" class="star-btn" data-star="4">★</button>
+                    <button type="button" class="star-btn" data-star="5">★</button>
+                  </div>
+                </div>
+              </div><!-- end rating card -->
+            </div>
+
+            <!-- Validation message -->
+            <div id="form-validation-msg" class="hidden text-rose-600 text-sm flex items-center gap-2">
+              <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+              <span id="form-validation-text"></span>
+            </div>
+
+            <!-- Submit button -->
+            <button id="btn-submit-survey" type="button"
+              class="w-full py-3 rounded-xl font-semibold text-white transition-all shadow-md flex items-center justify-center gap-2"
+              style="background: linear-gradient(to right, #0f766e, #0d9488);"
+              onmouseover="this.style.background='linear-gradient(to right,#0c5f58,#0b7a70)'"
+              onmouseout="this.style.background='linear-gradient(to right,#0f766e,#0d9488)'">
+              <i data-lucide="send" class="w-4 h-4"></i> Hantar Maklum Balas
+            </button>
+
+          </div><!-- end card body -->
+        </div><!-- end form card -->
+      </div><!-- end max-w-2xl -->
+    </section>
+  </main>
+
+  <!-- TOAST CONTAINER (empty, populated by JS) -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- FOOTER -->
+  <footer class="text-center py-8 mt-8 border-t border-slate-200">
+    <p class="text-slate-500 text-sm mb-3">
+      © 2025 Politeknik Kuching Sarawak — Dashboard Kepuasan Kemudahan | Data anonim, diproses sepenuhnya di penyemak imbas
+    </p>
+    <button id="btn-reset-demo" class="text-xs text-slate-400 hover:text-rose-500 underline transition-colors">
+      🔄 Tetapkan Semula Data Demo
+    </button>
+  </footer>
+
+  <script>
+    // ─── Constants ────────────────────────────────────────────────────────────
+
+    const FACILITIES = [
+      { id: 'makmal',       label: 'Makmal & Bengkel Kejuruteraan/Teknologi', icon: 'flask-conical' },
+      { id: 'perpustakaan', label: 'Perpustakaan Al-Farabi',                  icon: 'library'       },
+      { id: 'wifi',         label: 'Rangkaian Wi-Fi & Makmal ICT',            icon: 'wifi'          },
+      { id: 'kafeteria',    label: 'Kafeteria & Medan Selera',                icon: 'utensils'      },
+      { id: 'kamsis',       label: 'Kolej Kediaman (Kamsis)',                 icon: 'building-2'    },
+      { id: 'sukan',        label: 'Kompleks Sukan & Rekreasi',               icon: 'dumbbell'      },
+      { id: 'surau',        label: 'Surau Pusat & Bilik Solat',               icon: 'moon'          },
+      { id: 'tandas',       label: 'Kebersihan Tandas & Infrastruktur Asas',  icon: 'sparkles'      },
+    ];
+
+    const DEPARTMENTS = [
+      { id: 'jka',   label: 'Jabatan Kejuruteraan Awam',              quota: 50 },
+      { id: 'jke',   label: 'Jabatan Kejuruteraan Elektrik',          quota: 50 },
+      { id: 'jkm',   label: 'Jabatan Kejuruteraan Mekanikal',         quota: 50 },
+      { id: 'jp',    label: 'Jabatan Perdagangan',                    quota: 50 },
+      { id: 'jtmk',  label: 'Jabatan TMK',                           quota: 50 },
+      { id: 'jmsk',  label: 'Jabatan Matematik, Sains & Komputer',   quota: 50 },
+      { id: 'jpa',   label: 'Jabatan Pengajian Am',                   quota: 50 },
+      { id: 'admin', label: 'Pentadbiran & Kamsis/Sokongan',          quota: 30 },
+    ];
+
+    const CATEGORIES = ['pelajar', 'staf', 'pelawat'];
+
+    const LS_KEY = 'pks_facilities_v1';
+
+    // ─── UUID v4 ──────────────────────────────────────────────────────────────
+
+    function uuidv4() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    }
+
+    // ─── Seed Data ────────────────────────────────────────────────────────────
+
+    /**
+     * Generates 120 realistic anonymous survey responses.
+     * - Distribution proportional to dept quota (380 total quota → scale to 120)
+     * - Category mix: ~70% pelajar, ~20% staf, ~10% pelawat
+     * - Scores vary by facility:
+     *   wifi, tandas  → lower  (base 2–4)
+     *   surau         → higher (base 4–5)
+     *   others        → mid    (base 3–4)
+     */
+    function initSeedData() {
+      const responses = [];
+
+      // Deterministic pseudo-random using a simple LCG
+      let seed = 42;
+      function rand() {
+        seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+        return (seed >>> 0) / 0xffffffff;
+      }
+      function randInt(min, max) {
+        return min + Math.floor(rand() * (max - min + 1));
+      }
+
+      // Build weighted dept list (proportional to quota)
+      const totalQuota = DEPARTMENTS.reduce((s, d) => s + d.quota, 0); // 380
+      const deptPool = [];
+      DEPARTMENTS.forEach(d => {
+        const count = Math.round((d.quota / totalQuota) * 120);
+        for (let i = 0; i < count; i++) deptPool.push(d.id);
+      });
+      // Pad or trim to exactly 120
+      while (deptPool.length < 120) deptPool.push(DEPARTMENTS[0].id);
+      deptPool.length = 120;
+
+      // Shuffle dept pool deterministically
+      for (let i = deptPool.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [deptPool[i], deptPool[j]] = [deptPool[j], deptPool[i]];
+      }
+
+      // Category weights: pelajar=7, staf=2, pelawat=1
+      function pickCategory() {
+        const r = rand();
+        if (r < 0.70) return 'pelajar';
+        if (r < 0.90) return 'staf';
+        return 'pelawat';
+      }
+
+      // Score ranges per facility: [min, max]
+      const scoreRanges = {
+        makmal:       [2, 5],
+        perpustakaan: [3, 5],
+        wifi:         [1, 4],
+        kafeteria:    [2, 5],
+        kamsis:       [2, 5],
+        sukan:        [2, 5],
+        surau:        [3, 5],
+        tandas:       [1, 4],
+      };
+
+      // Base timestamp: spread over last 90 days
+      const now = Date.now();
+      const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+
+      for (let i = 0; i < 120; i++) {
+        const scores = {};
+        FACILITIES.forEach(f => {
+          const [min, max] = scoreRanges[f.id];
+          scores[f.id] = randInt(min, max);
+        });
+
+        const tsOffset = Math.floor(rand() * ninetyDays);
+        const ts = new Date(now - tsOffset).toISOString();
+
+        responses.push({
+          id:       uuidv4(),
+          ts,
+          dept:     deptPool[i],
+          category: pickCategory(),
+          scores,
+        });
+      }
+
+      return {
+        responses,
+        lastUpdated: new Date().toISOString(),
+      };
+    }
+
+    // ─── Persistence ──────────────────────────────────────────────────────────
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.responses) && parsed.responses.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        // Corrupted storage — fall through to seed
+      }
+      const seeded = initSeedData();
+      localStorage.setItem(LS_KEY, JSON.stringify(seeded));
+      return seeded;
+    }
+
+    function saveData(state) {
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+    }
+
+    // ─── Aggregation Functions (pure — never write to STATE) ──────────────────
+
+    /** Average score (1.00–5.00) for a single facility. */
+    function avgScore(responses, facilityId) {
+      if (!responses.length) return 0;
+      const sum = responses.reduce((s, r) => s + (r.scores[facilityId] || 0), 0);
+      return sum / responses.length;
+    }
+
+    /** % of responses where scores[facilityId] >= 4. */
+    function csatScore(responses, facilityId) {
+      if (!responses.length) return 0;
+      const satisfied = responses.filter(r => r.scores[facilityId] >= 4).length;
+      return (satisfied / responses.length) * 100;
+    }
+
+    /** Status label based on average score. */
+    function facilityStatus(avg) {
+      if (avg >= 4.0) return 'Cemerlang';
+      if (avg >= 3.0) return 'Sederhana';
+      return 'Perlu Tindakan';
+    }
+
+    /** Average of avgScore across all 8 facilities. */
+    function globalAvg(responses) {
+      if (!responses.length) return 0;
+      const total = FACILITIES.reduce((s, f) => s + avgScore(responses, f.id), 0);
+      return total / FACILITIES.length;
+    }
+
+    /** % of ALL individual scores (across all facilities) that are >= 4. */
+    function globalCsat(responses) {
+      if (!responses.length) return 0;
+      let satisfied = 0;
+      let total = 0;
+      responses.forEach(r => {
+        FACILITIES.forEach(f => {
+          total++;
+          if (r.scores[f.id] >= 4) satisfied++;
+        });
+      });
+      return total === 0 ? 0 : (satisfied / total) * 100;
+    }
+
+    /**
+     * Sentiment breakdown across ALL scores from ALL facilities.
+     * Returns { puas, sederhana, tidakPuas } as percentages.
+     *   puas      = scores 4–5
+     *   sederhana = score  3
+     *   tidakPuas = scores 1–2
+     */
+    function globalSentiment(responses) {
+      let puas = 0, sederhana = 0, tidakPuas = 0, total = 0;
+      responses.forEach(r => {
+        FACILITIES.forEach(f => {
+          const s = r.scores[f.id];
+          total++;
+          if (s >= 4)      puas++;
+          else if (s === 3) sederhana++;
+          else              tidakPuas++;
+        });
+      });
+      if (total === 0) return { puas: 0, sederhana: 0, tidakPuas: 0 };
+      return {
+        puas:      (puas      / total) * 100,
+        sederhana: (sederhana / total) * 100,
+        tidakPuas: (tidakPuas / total) * 100,
+      };
+    }
+
+    /** Response count and category breakdown for a department. */
+    function deptStats(responses, deptId) {
+      const deptResponses = responses.filter(r => r.dept === deptId);
+      const byCategory = { pelajar: 0, staf: 0, pelawat: 0 };
+      deptResponses.forEach(r => {
+        if (byCategory[r.category] !== undefined) byCategory[r.category]++;
+      });
+      return { count: deptResponses.length, byCategory };
+    }
+
+    /** FACILITIES object with the highest avgScore. */
+    function topFacility(responses) {
+      return FACILITIES.reduce((best, f) => {
+        return avgScore(responses, f.id) > avgScore(responses, best.id) ? f : best;
+      }, FACILITIES[0]);
+    }
+
+    /** FACILITIES object with the lowest avgScore. */
+    function criticalFacility(responses) {
+      return FACILITIES.reduce((worst, f) => {
+        return avgScore(responses, f.id) < avgScore(responses, worst.id) ? f : worst;
+      }, FACILITIES[0]);
+    }
+
+    /** % of the 8 facilities that have avgScore >= 4.0. */
+    function kpiTarget(responses) {
+      const excellent = FACILITIES.filter(f => avgScore(responses, f.id) >= 4.0).length;
+      return (excellent / FACILITIES.length) * 100;
+    }
+
+    // ─── STATE ────────────────────────────────────────────────────────────────
+
+    let STATE = loadData();
+
+    // ─── Status Color Helper ──────────────────────────────────────────────────
+
+    function statusColor(avg) {
+      if (avg >= 4.0) return { bg: 'bg-emerald-100', text: 'text-emerald-700', bar: '#10b981' };
+      if (avg >= 3.0) return { bg: 'bg-amber-100',   text: 'text-amber-700',   bar: '#f59e0b' };
+      return           { bg: 'bg-rose-100',    text: 'text-rose-700',    bar: '#f43f5e' };
+    }
+
+    // ─── Tab 1 Render Functions ───────────────────────────────────────────────
+
+    function renderKpiCards(responses) {
+      const csat    = globalCsat(responses);
+      const avg     = globalAvg(responses);
+      const total   = responses.length;
+      const target  = kpiTarget(responses);
+
+      const csatEl  = document.getElementById('kpi-csat-value');
+      const avgEl   = document.getElementById('kpi-avg-value');
+      const badgeEl = document.getElementById('kpi-avg-badge');
+      const totEl   = document.getElementById('kpi-total-value');
+      const tgtEl   = document.getElementById('kpi-target-value');
+
+      if (csatEl)  csatEl.textContent  = csat.toFixed(1) + '%';
+      if (avgEl)   avgEl.textContent   = avg.toFixed(2) + ' / 5.00';
+      if (totEl)   totEl.textContent   = total;
+      if (tgtEl)   tgtEl.textContent   = target.toFixed(1) + '%';
+
+      if (badgeEl) {
+        const sc = statusColor(avg);
+        badgeEl.innerHTML = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full ${sc.bg} ${sc.text}">${facilityStatus(avg)}</span>`;
+      }
+    }
+
+    function renderStatusPanel(responses) {
+      const top  = topFacility(responses);
+      const crit = criticalFacility(responses);
+
+      // Top facility
+      const topAvg  = avgScore(responses, top.id);
+      const topCsat = csatScore(responses, top.id);
+      const topNameEl  = document.getElementById('status-top-name');
+      const topScoreEl = document.getElementById('status-top-score');
+      const topCsatEl  = document.getElementById('status-top-csat');
+      const topBarEl   = document.getElementById('status-top-bar');
+
+      if (topNameEl)  topNameEl.textContent  = top.label;
+      if (topScoreEl) topScoreEl.textContent = topAvg.toFixed(2) + ' / 5.00';
+      if (topCsatEl)  topCsatEl.textContent  = 'CSAT ' + topCsat.toFixed(1) + '%';
+      if (topBarEl)   topBarEl.style.width   = ((topAvg / 5) * 100).toFixed(1) + '%';
+
+      // Critical facility
+      const critAvg    = avgScore(responses, crit.id);
+      const critNameEl   = document.getElementById('status-critical-name');
+      const critScoreEl  = document.getElementById('status-critical-score');
+      const critStatusEl = document.getElementById('status-critical-status');
+      const critBarEl    = document.getElementById('status-critical-bar');
+
+      if (critNameEl)   critNameEl.textContent   = crit.label;
+      if (critScoreEl)  critScoreEl.textContent  = critAvg.toFixed(2) + ' / 5.00';
+      if (critStatusEl) critStatusEl.textContent = facilityStatus(critAvg);
+      if (critBarEl)    critBarEl.style.width     = ((critAvg / 5) * 100).toFixed(1) + '%';
+    }
+
+    function renderFacilityBarChart(responses) {
+      const el = document.getElementById('facility-bar-chart');
+      if (!el) return;
+
+      // Compute avg for each facility then sort high → low
+      const sorted = FACILITIES.map(f => ({
+        ...f,
+        avg:  avgScore(responses, f.id),
+        csat: csatScore(responses, f.id),
+      })).sort((a, b) => b.avg - a.avg);
+
+      el.innerHTML = sorted.map(f => {
+        const sc      = statusColor(f.avg);
+        const widthPct = ((f.avg / 5) * 100).toFixed(1);
+        const gradient = f.avg >= 4.0
+          ? 'linear-gradient(90deg,#10b981,#34d399)'
+          : f.avg >= 3.0
+          ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+          : 'linear-gradient(90deg,#f43f5e,#fb7185)';
+
+        return `
+          <div class="flex items-center gap-3 group">
+            <div class="shrink-0 text-xs text-slate-600 font-medium text-right leading-tight"
+                 style="width:170px; min-width:170px;">${f.label}</div>
+            <div class="flex-1 bg-slate-100 rounded-full h-6 relative overflow-hidden">
+              <div class="h-6 rounded-full transition-all duration-700"
+                   style="width:${widthPct}%; background:${gradient}; min-width:2px;"></div>
+            </div>
+            <div class="shrink-0 text-sm font-bold text-slate-700 w-10 text-right">${f.avg.toFixed(2)}</div>
+            <div class="shrink-0">
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${sc.bg} ${sc.text}">${facilityStatus(f.avg)}</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderSentimentBar(responses) {
+      const el = document.getElementById('sentiment-bar');
+      if (!el) return;
+
+      const s = globalSentiment(responses);
+
+      // Compute raw counts from all scores
+      let puasN = 0, sedN = 0, tidakN = 0;
+      responses.forEach(r => {
+        FACILITIES.forEach(f => {
+          const sc = r.scores[f.id];
+          if (sc >= 4)      puasN++;
+          else if (sc === 3) sedN++;
+          else               tidakN++;
+        });
+      });
+
+      const puasPct  = s.puas.toFixed(1);
+      const sedPct   = s.sederhana.toFixed(1);
+      const tidakPct = s.tidakPuas.toFixed(1);
+
+      el.innerHTML = `
+        <!-- Segmented bar -->
+        <div class="flex w-full h-7 rounded-full overflow-hidden gap-0.5">
+          <div class="h-full bg-emerald-500 transition-all duration-700 flex items-center justify-center"
+               style="width:${puasPct}%; min-width:${s.puas > 0 ? '2px' : '0'};"
+               title="Puas Hati ${puasPct}%">
+            ${s.puas > 5 ? `<span class="text-xs font-bold text-white px-1">${puasPct}%</span>` : ''}
+          </div>
+          <div class="h-full bg-amber-400 transition-all duration-700 flex items-center justify-center"
+               style="width:${sedPct}%; min-width:${s.sederhana > 0 ? '2px' : '0'};"
+               title="Sederhana ${sedPct}%">
+            ${s.sederhana > 5 ? `<span class="text-xs font-bold text-white px-1">${sedPct}%</span>` : ''}
+          </div>
+          <div class="h-full bg-rose-400 transition-all duration-700 flex items-center justify-center"
+               style="width:${tidakPct}%; min-width:${s.tidakPuas > 0 ? '2px' : '0'};"
+               title="Tidak Puas Hati ${tidakPct}%">
+            ${s.tidakPuas > 5 ? `<span class="text-xs font-bold text-white px-1">${tidakPct}%</span>` : ''}
+          </div>
+        </div>
+        <!-- Stat blocks -->
+        <div class="grid grid-cols-3 gap-4 pt-1">
+          <div class="text-center">
+            <div class="flex items-center justify-center gap-1.5 mb-1">
+              <span class="inline-block w-3 h-3 rounded-full bg-emerald-500"></span>
+              <span class="text-xs font-semibold text-slate-600">Puas Hati</span>
+            </div>
+            <div class="text-2xl font-bold text-emerald-600">${puasPct}%</div>
+            <div class="text-xs text-slate-400">${puasN.toLocaleString()} skor (4–5)</div>
+          </div>
+          <div class="text-center">
+            <div class="flex items-center justify-center gap-1.5 mb-1">
+              <span class="inline-block w-3 h-3 rounded-full bg-amber-400"></span>
+              <span class="text-xs font-semibold text-slate-600">Sederhana</span>
+            </div>
+            <div class="text-2xl font-bold text-amber-500">${sedPct}%</div>
+            <div class="text-xs text-slate-400">${sedN.toLocaleString()} skor (3)</div>
+          </div>
+          <div class="text-center">
+            <div class="flex items-center justify-center gap-1.5 mb-1">
+              <span class="inline-block w-3 h-3 rounded-full bg-rose-400"></span>
+              <span class="text-xs font-semibold text-slate-600">Tidak Puas Hati</span>
+            </div>
+            <div class="text-2xl font-bold text-rose-500">${tidakPct}%</div>
+            <div class="text-xs text-slate-400">${tidakN.toLocaleString()} skor (1–2)</div>
+          </div>
+        </div>`;
+    }
+
+    function renderTab1(responses) {
+      renderKpiCards(responses);
+      renderStatusPanel(responses);
+      renderFacilityBarChart(responses);
+      renderSentimentBar(responses);
+    }
+
+    // ─── Tab 2: Pemantauan Mengikut Jabatan ──────────────────────────────────
+
+    function renderDeptQuotaCards(responses) {
+      const el = document.getElementById('dept-quota-grid');
+      if (!el) return;
+
+      el.innerHTML = DEPARTMENTS.map(dept => {
+        const stats = deptStats(responses, dept.id);
+        const pct   = Math.min((stats.count / dept.quota) * 100, 100);
+
+        // Progress bar colour
+        let barColor, statusLabel, statusClass;
+        if (pct >= 80) {
+          barColor    = 'bg-emerald-500';
+          statusLabel = '✅ Kuota Dipenuhi';
+          statusClass = 'text-emerald-600';
+        } else if (pct >= 50) {
+          barColor    = 'bg-amber-400';
+          statusLabel = '⚠️ Sedang Berkembang';
+          statusClass = 'text-amber-600';
+        } else {
+          barColor    = 'bg-rose-500';
+          statusLabel = '🚨 Kurang Respons';
+          statusClass = 'text-rose-600';
+        }
+
+        // Border accent matches bar colour
+        const borderColor = pct >= 80 ? 'border-emerald-400' : pct >= 50 ? 'border-amber-400' : 'border-rose-400';
+
+        return `
+          <div class="bg-white rounded-xl shadow-sm border-l-4 ${borderColor} p-5 flex flex-col gap-3">
+            <!-- Header row -->
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-bold text-slate-800 leading-tight">${dept.label}</span>
+              <span class="shrink-0 text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full whitespace-nowrap">${stats.count} respons</span>
+            </div>
+            <!-- Quota progress -->
+            <div class="flex items-end justify-between text-xs text-slate-500 mb-1">
+              <span>Kuota: <span class="font-semibold text-slate-700">${stats.count} / ${dept.quota}</span></span>
+              <span class="font-semibold text-slate-700">${pct.toFixed(0)}%</span>
+            </div>
+            <!-- Progress bar -->
+            <div class="w-full bg-slate-100 rounded-full h-2.5">
+              <div class="${barColor} h-2.5 rounded-full transition-all duration-500" style="width:${pct}%"></div>
+            </div>
+            <!-- Status label -->
+            <div class="text-xs font-semibold ${statusClass}">${statusLabel}</div>
+            <!-- Category breakdown pills -->
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              <span class="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium">Pelajar: ${stats.byCategory.pelajar}</span>
+              <span class="text-xs bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-medium">Staf: ${stats.byCategory.staf}</span>
+              <span class="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium">Pelawat: ${stats.byCategory.pelawat}</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderDeptMatrix(responses) {
+      const tbody = document.getElementById('dept-matrix-table');
+      if (!tbody) return;
+
+      // Compute per-dept stats
+      const rows = DEPARTMENTS.map(dept => {
+        const s = deptStats(responses, dept.id);
+        return { dept, ...s };
+      });
+
+      // Column totals
+      const totals = { pelajar: 0, staf: 0, pelawat: 0, count: 0 };
+      rows.forEach(r => {
+        totals.pelajar  += r.byCategory.pelajar;
+        totals.staf     += r.byCategory.staf;
+        totals.pelawat  += r.byCategory.pelawat;
+        totals.count    += r.count;
+      });
+
+      function pct(n, total) {
+        if (!total) return '0%';
+        return (n / total * 100).toFixed(0) + '%';
+      }
+
+      const dataRows = rows.map((r, i) => {
+        const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+        return `
+          <tr class="${rowBg} hover:bg-teal-50 transition-colors">
+            <td class="px-4 py-3 text-sm font-medium text-slate-800 border-b border-slate-100 whitespace-nowrap">${r.dept.label}</td>
+            <td class="px-4 py-3 text-center border-b border-slate-100">
+              <span class="font-bold text-slate-800">${r.byCategory.pelajar}</span>
+              <span class="block text-xs text-slate-400">${pct(r.byCategory.pelajar, r.count)}</span>
+            </td>
+            <td class="px-4 py-3 text-center border-b border-slate-100">
+              <span class="font-bold text-slate-800">${r.byCategory.staf}</span>
+              <span class="block text-xs text-slate-400">${pct(r.byCategory.staf, r.count)}</span>
+            </td>
+            <td class="px-4 py-3 text-center border-b border-slate-100">
+              <span class="font-bold text-slate-800">${r.byCategory.pelawat}</span>
+              <span class="block text-xs text-slate-400">${pct(r.byCategory.pelawat, r.count)}</span>
+            </td>
+            <td class="px-4 py-3 text-center border-b border-slate-100">
+              <span class="font-bold text-teal-700">${r.count}</span>
+            </td>
+          </tr>`;
+      }).join('');
+
+      const totalsRow = `
+        <tr class="bg-slate-100 font-semibold text-slate-700">
+          <td class="px-4 py-3 text-sm font-bold">Jumlah Keseluruhan</td>
+          <td class="px-4 py-3 text-center">
+            <span class="font-bold">${totals.pelajar}</span>
+            <span class="block text-xs text-slate-500">${pct(totals.pelajar, totals.count)}</span>
+          </td>
+          <td class="px-4 py-3 text-center">
+            <span class="font-bold">${totals.staf}</span>
+            <span class="block text-xs text-slate-500">${pct(totals.staf, totals.count)}</span>
+          </td>
+          <td class="px-4 py-3 text-center">
+            <span class="font-bold">${totals.pelawat}</span>
+            <span class="block text-xs text-slate-500">${pct(totals.pelawat, totals.count)}</span>
+          </td>
+          <td class="px-4 py-3 text-center">
+            <span class="font-bold text-teal-700">${totals.count}</span>
+          </td>
+        </tr>`;
+
+      tbody.innerHTML = dataRows + totalsRow;
+    }
+
+    function renderTab2(responses) {
+      renderDeptQuotaCards(responses);
+      renderDeptMatrix(responses);
+    }
+
+    // ─── Tab 3 Render Functions ───────────────────────────────────────────────
+
+    function renderFacilityCards(responses) {
+      const el = document.getElementById('facility-cards-grid');
+      if (!el) return;
+
+      const starColors = ['#10b981', '#14b8a6', '#f59e0b', '#f97316', '#f43f5e'];
+      const starLabels = ['★★★★★ (5 bintang)', '★★★★☆ (4 bintang)', '★★★☆☆ (3 bintang)', '★★☆☆☆ (2 bintang)', '★☆☆☆☆ (1 bintang)'];
+      const starTextColors = ['text-emerald-600', 'text-teal-600', 'text-amber-500', 'text-orange-500', 'text-rose-500'];
+      const total = responses.length;
+
+      el.innerHTML = FACILITIES.map(fac => {
+        const avg    = avgScore(responses, fac.id);
+        const csat   = csatScore(responses, fac.id);
+        const status = facilityStatus(avg);
+        const sc     = statusColor(avg);
+        // star counts: index 0 = 5 stars, index 4 = 1 star
+        const starCounts = [5, 4, 3, 2, 1].map(s =>
+          responses.filter(r => r.scores && r.scores[fac.id] === s).length
+        );
+        const facTotal = starCounts.reduce((a, b) => a + b, 0);
+
+        const starRows = [5, 4, 3, 2, 1].map((star, i) => {
+          const count = starCounts[i];
+          const pct   = facTotal > 0 ? (count / facTotal * 100).toFixed(1) : '0.0';
+          const width = facTotal > 0 ? (count / facTotal * 100).toFixed(2) : 0;
+          return `
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-36 flex-shrink-0 font-medium ${starTextColors[i]}">${starLabels[i]}</span>
+              <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div class="h-2 rounded-full" style="width:${width}%;background:${starColors[i]};"></div>
+              </div>
+              <span class="w-20 text-right text-slate-500 flex-shrink-0">${count} (${pct}%)</span>
+            </div>`;
+        }).join('');
+
+        const mainBarWidth = avg > 0 ? ((avg / 5) * 100).toFixed(2) : 0;
+
+        return `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4">
+            <!-- Card Header -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl ${sc.bg} flex items-center justify-center flex-shrink-0">
+                  <i data-lucide="${fac.icon}" class="w-5 h-5 ${sc.text}"></i>
+                </div>
+                <span class="font-bold text-slate-800 text-sm leading-tight">${fac.label}</span>
+              </div>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${sc.bg} ${sc.text}">${status}</span>
+            </div>
+            <!-- Score Row -->
+            <div class="flex items-center justify-between text-center">
+              <div>
+                <div class="text-2xl font-extrabold ${sc.text}">${avg.toFixed(2)}</div>
+                <div class="text-xs text-slate-400 mt-0.5">Purata Skor</div>
+              </div>
+              <div>
+                <div class="text-2xl font-extrabold text-slate-700">${csat.toFixed(1)}%</div>
+                <div class="text-xs text-slate-400 mt-0.5">CSAT Score</div>
+              </div>
+              <div>
+                <div class="text-2xl font-extrabold text-slate-700">${facTotal}</div>
+                <div class="text-xs text-slate-400 mt-0.5">Responden</div>
+              </div>
+            </div>
+            <!-- Overall Progress Bar -->
+            <div>
+              <div class="flex justify-between text-xs text-slate-400 mb-1">
+                <span>Skor Keseluruhan</span>
+                <span>${avg.toFixed(2)} / 5.00</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                <div class="h-2.5 rounded-full" style="width:${mainBarWidth}%;background:${sc.bar};"></div>
+              </div>
+            </div>
+            <!-- Star Distribution -->
+            <div class="flex flex-col gap-1.5">
+              <p class="text-xs font-semibold text-slate-500 mb-0.5">Taburan Penarafan</p>
+              ${starRows}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderTab3(responses) {
+      renderFacilityCards(responses);
+    }
+
+    // ─── Tab 4: Survey Form State & Logic ────────────────────────────────────
+
+    const formState = { dept: '', category: '', scores: {} };
+
+    function initStarRatings() {
+      document.querySelectorAll('.star-group').forEach(group => {
+        const facId = group.dataset.facId;
+        group.querySelectorAll('.star-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const val = parseInt(btn.dataset.star);
+            formState.scores[facId] = val;
+            group.querySelectorAll('.star-btn').forEach(b => {
+              b.classList.toggle('active', parseInt(b.dataset.star) <= val);
+            });
+          });
+        });
+      });
+    }
+
+    function initCategoryButtons() {
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          formState.category = btn.dataset.cat;
+          document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+      });
+    }
+
+    function validateForm() {
+      if (!formState.dept) return 'Sila pilih jabatan anda.';
+      if (!formState.category) return 'Sila pilih kategori pengguna anda.';
+      for (const fac of FACILITIES) {
+        if (!formState.scores[fac.id]) return `Sila berikan penilaian untuk: ${fac.label}`;
+      }
+      return null;
+    }
+
+    function submitSurvey() {
+      const err = validateForm();
+      const msgEl   = document.getElementById('form-validation-msg');
+      const msgText = document.getElementById('form-validation-text');
+      if (err) {
+        msgText.textContent = err;
+        msgEl.classList.remove('hidden');
+        return;
+      }
+      msgEl.classList.add('hidden');
+
+      const newResponse = {
+        id:       uuidv4(),
+        ts:       new Date().toISOString(),
+        dept:     formState.dept,
+        category: formState.category,
+        scores:   { ...formState.scores }
+      };
+
+      STATE.responses.push(newResponse);
+      STATE.lastUpdated = new Date().toISOString();
+      saveData(STATE);
+
+      renderAll();
+      showToast('✅ Terima kasih! Maklum balas anda telah direkodkan secara anonim.', 'success');
+      resetForm();
+    }
+
+    function resetForm() {
+      document.getElementById('form-dept').value = '';
+      formState.dept     = '';
+      formState.category = '';
+      formState.scores   = {};
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+      document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('form-validation-msg').classList.add('hidden');
+    }
+
+    function showToast(message, type) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const colors = {
+        success: 'bg-emerald-600',
+        error:   'bg-rose-600',
+        info:    'bg-teal-600'
+      };
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto px-5 py-3 rounded-xl text-white text-sm font-medium shadow-lg flex items-center gap-3 ${colors[type] || colors.info}`;
+      toast.style.cssText = 'animation: slideInToast 0.3s ease; max-width: 380px;';
+      toast.innerHTML = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.animation = 'slideOutToast 0.3s ease forwards';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function renderAll() {
+      const responses = STATE.responses;
+      const totalEl = document.getElementById('total-responses');
+      if (totalEl) totalEl.textContent = responses.length;
+      renderTab1(responses);
+      renderTab2(responses);
+      renderTab3(responses);
+      lucide.createIcons();
+    }
+
+    // ─── Tab Switching ────────────────────────────────────────────────────────
+
+    function switchTab(tabId) {
+      document.documentElement.setAttribute('data-tab', tabId);
+    }
+
+    // ─── Live Date Display (BM locale) ───────────────────────────────────────
+
+    function updateHeaderDate() {
+      const days   = ['Ahad','Isnin','Selasa','Rabu','Khamis','Jumaat','Sabtu'];
+      const months = ['Januari','Februari','Mac','April','Mei','Jun','Julai','Ogos','September','Oktober','November','Disember'];
+      const now = new Date();
+      const el  = document.getElementById('header-date');
+      if (el) el.textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+    }
+
+    // ─── Page Load Initialization ─────────────────────────────────────────────
+
+    document.documentElement.setAttribute('data-tab', 'executive');
+    updateHeaderDate();
+    setInterval(updateHeaderDate, 60000);
+
+    // Tab button event listeners
+    document.querySelectorAll('[data-tab-btn]').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tabBtn));
+    });
+
+    // Tab 4: Survey form listeners & init
+    document.getElementById('form-dept').addEventListener('change', e => { formState.dept = e.target.value; });
+    document.getElementById('btn-submit-survey').addEventListener('click', submitSurvey);
+    initStarRatings();
+    initCategoryButtons();
+
+    // Reset Demo button
+    document.getElementById('btn-reset-demo').addEventListener('click', () => {
+      if (confirm('Tetapkan semula semua data kepada 120 respons demo asal?')) {
+        STATE = initSeedData();
+        saveData(STATE);
+        renderAll();
+        showToast('🔄 Data demo telah ditetapkan semula.', 'info');
+      }
+    });
+
+    // Render all tabs on page load (also sets #total-responses and calls lucide.createIcons)
+    renderAll();
+  </script>
+</body>
+</html>
